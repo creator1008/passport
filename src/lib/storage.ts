@@ -16,6 +16,14 @@ export async function getPassportImageUrl(storagePath: string): Promise<string |
   return data.signedUrl;
 }
 
+export async function deletePassportImage(storagePath: string): Promise<void> {
+  const supabase = getSupabaseAdmin();
+  const { error } = await supabase.storage.from(BUCKET).remove([storagePath]);
+  if (error) {
+    console.warn(`Failed to delete storage file: ${storagePath}`, error.message);
+  }
+}
+
 export async function uploadPassportImage(
   applicantId: string,
   buffer: Buffer,

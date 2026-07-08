@@ -1,11 +1,18 @@
 import { NextResponse } from "next/server";
-import { getPassportImageUrl } from "@/lib/storage";
+import { getPassportImageUrl, deletePassportImage } from "@/lib/storage";
 import { getSupabaseAdmin, isSupabaseConfigured } from "@/lib/supabase/server";
-import type { ApplicantWithPassport } from "@/lib/types";
+import type { ApplicantStatus, ApplicantWithPassport } from "@/lib/types";
 
 interface RouteContext {
   params: Promise<{ id: string }>;
 }
+
+const VALID_STATUSES = new Set<ApplicantStatus>([
+  "PENDING",
+  "REVIEW",
+  "APPROVED",
+  "REJECTED",
+]);
 
 export async function GET(_request: Request, context: RouteContext) {
   if (!isSupabaseConfigured()) {
@@ -55,6 +62,11 @@ export async function PATCH(request: Request, context: RouteContext) {
 
   const { id } = await context.params;
   const body = (await request.json()) as { status?: string };
+
+  if (!body.status || !VALID_STATUSES.has(body.status as ApplicantStatus)) {
+    return NextResponse.json({ error: "Invalid status" }, { status: 400 });
+  }
+
   const supabase = getSupabaseAdmin();
 
   const { data, error } = await supabase
@@ -72,4 +84,37 @@ export async function PATCH(request: Request, context: RouteContext) {
   }
 
   return NextResponse.json({ applicant: data });
+}
+
+export async function DELETE(_request: Request, context: RouteContext) {
+  if (!isSupabaseConfigured()) {
+    return NextResponse.json(
+      { error: "Supabase is not configured. Set .env.local first." },
+      { status: 503 },
+    );
+  }
+
+  const { id } = await context.params;
+  const supabase = getSupabaseAdmin();
+
+  const { data: records, error: fetchError } = await supabase
+    .from("passport_records")
+    .select("storage_path")
+    .eq("applicant_id", id);
+
+  if (fetchError) {
+    return NextResponse.json({ error: fetchError.message }, { status: 500 });
+  }
+
+  if (records?.length) {
+    await Promise.all(records.map((r) => deletePassportImage(r.storage_path)));
+  }
+
+  const { error } = await supabase.from("applicants").delete().eq("id", id);
+
+  if (error) {
+    return NextResponse.json({ error: error.message }, { status: 500 });
+  }
+
+  return NextResponse.json({ success: true });
 }

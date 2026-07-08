@@ -2,7 +2,10 @@ import Image from "next/image";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { AppHeader } from "@/components/Layout";
+import { DeleteApplicantButton } from "@/components/DeleteApplicantButton";
 import { PassportUpload } from "@/components/PassportUpload";
+import { PassportRecordHistory } from "@/components/PassportRecordHistory";
+import { ReviewActions } from "@/components/ReviewActions";
 import {
   formatDate,
   formatDateTime,
@@ -89,6 +92,11 @@ export default async function ApplicantDetailPage({ params }: PageProps) {
               {latest.confidence != null && ` (${Math.round(latest.confidence * 100)}%)`}
             </span>
           )}
+          <DeleteApplicantButton
+            applicantId={applicant.id}
+            applicantName={applicant.full_name}
+            variant="detail"
+          />
         </div>
 
         {!latest ? (
@@ -170,10 +178,19 @@ export default async function ApplicantDetailPage({ params }: PageProps) {
               )}
             </section>
 
+            <section className="lg:col-span-2">
+              <ReviewActions
+                applicantId={applicant.id}
+                currentStatus={applicant.status}
+              />
+            </section>
+
+            <PassportRecordHistory records={passports} applicantId={applicant.id} />
+
             <section className="rounded-xl border border-slate-200 bg-white p-6 lg:col-span-2">
               <h2 className="text-lg font-medium text-slate-900">재업로드</h2>
               <p className="mt-1 text-sm text-slate-500">
-                더 선명한 이미지로 다시 분석할 수 있습니다.
+                더 선명한 이미지로 다시 분석할 수 있습니다. 동일 여권번호는 기존 내역을 갱신합니다.
               </p>
               <div className="mt-4">
                 <PassportUpload applicantId={applicant.id} fullName={applicant.full_name ?? ""} />

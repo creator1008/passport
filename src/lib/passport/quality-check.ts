@@ -1,4 +1,4 @@
-import sharp from "sharp";
+import sharp, { type Sharp } from "sharp";
 import type { QualityResult } from "@/lib/types";
 
 const MIN_WIDTH = 800;
@@ -25,9 +25,9 @@ export async function checkImageQuality(buffer: Buffer): Promise<QualityResult> 
   }
 
   const aspect = width / Math.max(height, 1);
-  if (aspect < 1.2 || aspect > 2.0) {
+  if (aspect < 1.05 || aspect > 2.2) {
     issues.push("여권 비율과 다릅니다. 전체 여권이 보이도록 다시 촬영하세요.");
-    score -= 15;
+    score -= 10;
   }
 
   const stats = await image.greyscale().stats();
@@ -55,7 +55,96 @@ export async function checkImageQuality(buffer: Buffer): Promise<QualityResult> 
   };
 }
 
-export async function extractMrzRegion(buffer: Buffer): Promise<Buffer> {
+export interface MrzBand {
+  top: number;
+  height: number;
+}
+
+function smoothRowDensity(values: number[], radius: number): number[] {
+  const smoothed = new Array<number>(values.length).fill(0);
+  for (let i = 0; i < values.length; i += 1) {
+    let sum = 0;
+    let count = 0;
+    for (let j = Math.max(0, i - radius); j <= Math.min(values.length - 1, i + radius); j += 1) {
+      sum += values[j];
+      count += 1;
+    }
+    smoothed[i] = sum / count;
+  }
+  return smoothed;
+}
+
+export async function locateMrzBand(buffer: Buffer): Promise<MrzBand | null> {
+  const metadata = await sharp(buffer).metadata();
+  const width = metadata.width ?? 0;
+  const height = metadata.height ?? 0;
+
+  if (width < 100 || height < 100) {
+    return null;
+  }
+
+  const scanTop = Math.floor(height * 0.45);
+  const scanHeight = height - scanTop;
+  const scaledWidth = 640;
+  const scaledHeight = Math.max(Math.round(scanHeight * (scaledWidth / width)), 80);
+
+  const { data } = await sharp(buffer)
+    .extract({ left: 0, top: scanTop, width, height: scanHeight })
+    .resize({ width: scaledWidth, height: scaledHeight })
+    .greyscale()
+    .normalize()
+    .raw()
+    .toBuffer({ resolveWithObject: true });
+
+  const rowDensity: number[] = [];
+  for (let y = 0; y < scaledHeight; y += 1) {
+    let dark = 0;
+    const rowOffset = y * scaledWidth;
+    for (let x = 0; x < scaledWidth; x += 1) {
+      if (data[rowOffset + x] < 145) {
+        dark += 1;
+      }
+    }
+    rowDensity.push(dark / scaledWidth);
+  }
+
+  const smoothed = smoothRowDensity(rowDensity, 2);
+  const windowSize = Math.max(Math.floor(scaledHeight * 0.18), 22);
+
+  let bestStart = 0;
+  let bestScore = -1;
+  for (let start = 0; start <= scaledHeight - windowSize; start += 1) {
+    let score = 0;
+    for (let y = start; y < start + windowSize; y += 1) {
+      score += smoothed[y];
+    }
+    if (score > bestScore) {
+      bestScore = score;
+      bestStart = start;
+    }
+  }
+
+  if (bestScore < windowSize * 0.08) {
+    return null;
+  }
+
+  const bandTop =
+    scanTop +
+    Math.floor((bestStart / scaledHeight) * scanHeight) -
+    Math.floor(height * 0.08);
+  const bandHeight =
+    Math.ceil((windowSize / scaledHeight) * scanHeight) + Math.floor(height * 0.14);
+
+  return {
+    top: Math.max(0, bandTop),
+    height: Math.min(Math.max(bandHeight, 120), height - Math.max(0, bandTop)),
+  };
+}
+
+async function buildMrzRegion(
+  buffer: Buffer,
+  preprocess: (pipeline: Sharp) => Sharp,
+): Promise<Buffer> {
   const metadata = await sharp(buffer).metadata();
   const width = metadata.width ?? 0;
   const height = metadata.height ?? 0;
@@ -64,13 +153,59 @@ export async function extractMrzRegion(buffer: Buffer): Promise<Buffer> {
     return buffer;
   }
 
-  const cropHeight = Math.max(Math.floor(height * 0.18), 80);
-  const top = Math.max(height - cropHeight, 0);
+  const band = await locateMrzBand(buffer);
+  const cropTop = band
+    ? Math.max(band.top - Math.floor(height * 0.08), Math.floor(height * 0.58))
+    : Math.floor(height * 0.58);
+  const cropHeight = Math.max(height - cropTop, Math.floor(height * 0.28));
+  const targetWidth = Math.min(Math.max(width, 1400), 2800);
+
+  const pipeline = sharp(buffer).extract({
+    left: 0,
+    top: cropTop,
+    width,
+    height: Math.min(cropHeight, height - cropTop),
+  });
+
+  return preprocess(pipeline.resize({ width: targetWidth, withoutEnlargement: false }))
+    .png()
+    .toBuffer();
+}
+
+export async function extractMrzRegion(buffer: Buffer): Promise<Buffer> {
+  return buildMrzRegion(buffer, (pipeline) =>
+    pipeline.greyscale().normalize().sharpen(),
+  );
+}
+
+export async function extractMrzRegionAlt(buffer: Buffer): Promise<Buffer> {
+  return buildMrzRegion(buffer, (pipeline) =>
+    pipeline.greyscale().normalize().sharpen().threshold(150),
+  );
+}
+
+export async function extractMrzRegionWide(buffer: Buffer): Promise<Buffer> {
+  const metadata = await sharp(buffer).metadata();
+  const width = metadata.width ?? 0;
+  const height = metadata.height ?? 0;
+
+  if (!width || !height) {
+    return buffer;
+  }
+
+  const band = await locateMrzBand(buffer);
+  const cropTop = band
+    ? Math.max(band.top - Math.floor(height * 0.06), Math.floor(height * 0.58))
+    : Math.floor(height * 0.58);
+  const cropHeight = height - cropTop;
+  const targetWidth = Math.min(Math.max(width, 1400), 2800);
 
   return sharp(buffer)
-    .extract({ left: 0, top, width, height: cropHeight })
+    .extract({ left: 0, top: cropTop, width, height: cropHeight })
+    .resize({ width: targetWidth, withoutEnlargement: false })
     .greyscale()
     .normalize()
     .sharpen()
+    .png()
     .toBuffer();
 }

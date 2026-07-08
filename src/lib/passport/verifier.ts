@@ -22,6 +22,15 @@ function daysUntil(dateIso: string | null): number | null {
   return Math.floor((target.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
 }
 
+function hasEssentialFields(fields: PassportFields): boolean {
+  return Boolean(
+    fields.passportNumber &&
+      fields.dateOfBirth &&
+      fields.dateOfExpiry &&
+      fields.surname,
+  );
+}
+
 export function verifyPassport(
   fields: PassportFields,
   quality: QualityResult,
@@ -32,6 +41,7 @@ export function verifyPassport(
 } {
   const flags: VerificationFlag[] = [];
   let confidence = 0.9;
+  const essential = hasEssentialFields(fields);
 
   if (!fields.mrzLine1 || !fields.mrzLine2) {
     addFlag(flags, "MRZ_NOT_FOUND", "HIGH", "MRZ 영역을 인식하지 못했습니다.");
@@ -39,8 +49,13 @@ export function verifyPassport(
   }
 
   if (!fields.mrzValid) {
-    addFlag(flags, "MRZ_CHECKSUM_INVALID", "HIGH", "MRZ 체크섬이 유효하지 않습니다.");
-    confidence -= 0.35;
+    if (!essential) {
+      addFlag(flags, "MRZ_CHECKSUM_INVALID", "HIGH", "MRZ 체크섬이 유효하지 않습니다.");
+      confidence -= 0.35;
+    } else if (!fields.passportNumber?.startsWith("M")) {
+      addFlag(flags, "MRZ_CHECKSUM_INVALID", "LOW", "MRZ 체크섬이 일치하지 않지만 필수 필드는 추출되었습니다.");
+      confidence -= 0.05;
+    }
   }
 
   if (!fields.passportNumber) {
@@ -76,12 +91,7 @@ export function verifyPassport(
     const issue = new Date(fields.dateOfIssue);
     const expiry = new Date(fields.dateOfExpiry);
     if (issue >= expiry) {
-      addFlag(
-        flags,
-        "DATE_LOGIC_ERROR",
-        "HIGH",
-        "발급일이 만료일보다 늦습니다.",
-      );
+      addFlag(flags, "DATE_LOGIC_ERROR", "HIGH", "발급일이 만료일보다 늦습니다.");
       confidence -= 0.25;
     }
   }
@@ -108,7 +118,7 @@ export function verifyPassport(
 
   if (hasHigh || confidence < 0.5) {
     recommendation = "FAIL";
-  } else if (hasMedium || confidence < 0.8 || !fields.mrzValid) {
+  } else if (hasMedium || confidence < 0.8) {
     recommendation = "REVIEW";
   }
 
@@ -119,14 +129,8 @@ export function shouldUseAiFallback(
   confidence: number,
   flags: VerificationFlag[],
 ): boolean {
-  if (!process.env.OPENAI_API_KEY) {
-    return false;
-  }
-
-  if (confidence < 0.8) {
-    return true;
-  }
-
+  if (!process.env.OPENAI_API_KEY) return false;
+  if (confidence < 0.8) return true;
   return flags.some(
     (f) =>
       f.severity === "HIGH" &&

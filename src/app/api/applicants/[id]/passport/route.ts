@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { parsePassportImage } from "@/lib/passport/pipeline";
-import { uploadPassportImage } from "@/lib/storage";
+import { upsertPassportRecord } from "@/lib/passport/upsert";
 import { getSupabaseAdmin, isSupabaseConfigured } from "@/lib/supabase/server";
 
 interface RouteContext {
@@ -45,62 +45,27 @@ export async function POST(request: Request, context: RouteContext) {
 
   const buffer = Buffer.from(await file.arrayBuffer());
   const parseResult = await parsePassportImage(buffer, file.type);
-  const storagePath = await uploadPassportImage(applicantId, buffer, file.type);
 
-  const displayName =
-    [parseResult.fields.surname, parseResult.fields.givenNames]
-      .filter(Boolean)
-      .join(" ")
-      .trim() || applicant.full_name;
+  try {
+    const result = await upsertPassportRecord({
+      applicantId,
+      buffer,
+      mimeType: file.type,
+      parseResult,
+      applicantFullName: applicant.full_name,
+    });
 
-  const applicantStatus =
-    parseResult.recommendation === "PASS"
-      ? "APPROVED"
-      : parseResult.recommendation === "FAIL"
-        ? "REJECTED"
-        : "REVIEW";
-
-  const { data: passportRecord, error: insertError } = await supabase
-    .from("passport_records")
-    .insert({
-      applicant_id: applicantId,
-      passport_number: parseResult.fields.passportNumber,
-      surname: parseResult.fields.surname,
-      given_names: parseResult.fields.givenNames,
-      nationality: parseResult.fields.nationality,
-      sex: parseResult.fields.sex,
-      date_of_birth: parseResult.fields.dateOfBirth,
-      date_of_issue: parseResult.fields.dateOfIssue,
-      date_of_expiry: parseResult.fields.dateOfExpiry,
-      mrz_line1: parseResult.fields.mrzLine1,
-      mrz_line2: parseResult.fields.mrzLine2,
-      mrz_valid: parseResult.fields.mrzValid,
-      quality_score: parseResult.quality.score,
-      confidence: parseResult.confidence,
-      recommendation: parseResult.recommendation,
-      flags: parseResult.flags,
-      storage_path: storagePath,
-      raw_extraction: parseResult.rawExtraction,
-      used_ai: parseResult.usedAi,
-    })
-    .select()
-    .single();
-
-  if (insertError) {
-    return NextResponse.json({ error: insertError.message }, { status: 500 });
+    return NextResponse.json({
+      passportRecord: result.passportRecord,
+      applicantId: result.applicantId,
+      updated: result.updated,
+      duplicateApplicantRemoved: result.duplicateApplicantRemoved,
+      parseResult,
+    });
+  } catch (error) {
+    return NextResponse.json(
+      { error: error instanceof Error ? error.message : "저장 실패" },
+      { status: 500 },
+    );
   }
-
-  await supabase
-    .from("applicants")
-    .update({
-      full_name: displayName || applicant.full_name,
-      status: applicantStatus,
-      updated_at: new Date().toISOString(),
-    })
-    .eq("id", applicantId);
-
-  return NextResponse.json({
-    passportRecord,
-    parseResult,
-  });
 }

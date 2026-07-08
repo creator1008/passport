@@ -1,0 +1,16 @@
+# Normalize text files to LF in the repository
+* text=auto
+
+# Force common text file types to LF line endings
+*.ts text eol=lf
+*.tsx text eol=lf
+*.js text eol=lf
+*.jsx text eol=lf
+*.json text eol=lf
+*.css text eol=lf
+*.scss text eol=lf
+*.md text eol=lf
+*.yml text eol=lf
+*.yaml text eol=lf
+*.html text eol=lf
+*.txt text eol=lf

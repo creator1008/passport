@@ -61,7 +61,8 @@ export function PassportUpload({
         throw new Error(uploadData.error ?? "여권 분석 실패");
       }
 
-      router.push(redirectTo ?? `/applicants/${targetId}`);
+      const canonicalId = uploadData.applicantId ?? targetId;
+      router.push(redirectTo ?? `/applicants/${canonicalId}`);
       router.refresh();
     } catch (err) {
       setError(err instanceof Error ? err.message : "알 수 없는 오류");

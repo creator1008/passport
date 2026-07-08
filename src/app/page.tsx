@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { AppHeader, SetupBanner } from "@/components/Layout";
+import { DeleteApplicantButton } from "@/components/DeleteApplicantButton";
 import {
   formatDateTime,
   recommendationClass,
@@ -14,6 +15,7 @@ interface ApplicantListItem extends Applicant {
     id: string;
     recommendation: string;
     confidence: number | null;
+    passport_number: string | null;
     created_at: string;
   }>;
 }
@@ -22,7 +24,7 @@ async function getApplicants(): Promise<ApplicantListItem[]> {
   const supabase = getSupabaseAdmin();
   const { data, error } = await supabase
     .from("applicants")
-    .select("*, passport_records(id, recommendation, confidence, created_at)")
+    .select("*, passport_records(id, recommendation, confidence, passport_number, created_at)")
     .order("created_at", { ascending: false });
 
   if (error) {
@@ -89,6 +91,7 @@ export default async function HomePage() {
                       <th className="px-4 py-3 font-medium">상태</th>
                       <th className="px-4 py-3 font-medium">AI 판정</th>
                       <th className="px-4 py-3 font-medium">등록일</th>
+                      <th className="px-4 py-3 font-medium">관리</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100">
@@ -130,6 +133,12 @@ export default async function HomePage() {
                           </td>
                           <td className="px-4 py-3 text-slate-500">
                             {formatDateTime(applicant.created_at)}
+                          </td>
+                          <td className="px-4 py-3">
+                            <DeleteApplicantButton
+                              applicantId={applicant.id}
+                              applicantName={applicant.full_name}
+                            />
                           </td>
                         </tr>
                       );
