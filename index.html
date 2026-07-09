@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="ko">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Passport Verify</title>
+    <meta
+      name="description"
+      content="외국인 채용 서류 검증 — 여권·경력증명서 업로드 및 AI 분석"
+    />
+    <!-- Vercel 배포 후 아래 URL을 실제 배포 주소로 바꾸면 github.io 접속 시 앱으로 이동합니다. -->
+    <meta id="prod-redirect" http-equiv="refresh" content="" />
+    <style>
+      :root {
+        color-scheme: light;
+        font-family: "Segoe UI", system-ui, sans-serif;
+        line-height: 1.5;
+      }
+      body {
+        margin: 0;
+        min-height: 100vh;
+        display: grid;
+        place-items: center;
+        background: #f8fafc;
+        color: #0f172a;
+      }
+      main {
+        width: min(520px, calc(100% - 2rem));
+        padding: 2rem;
+        border: 1px solid #e2e8f0;
+        border-radius: 1rem;
+        background: #fff;
+        box-shadow: 0 10px 30px rgba(15, 23, 42, 0.06);
+      }
+      h1 {
+        margin: 0 0 0.5rem;
+        font-size: 1.5rem;
+      }
+      p {
+        margin: 0 0 1rem;
+        color: #475569;
+        font-size: 0.95rem;
+      }
+      .actions {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.75rem;
+        margin-top: 1.5rem;
+      }
+      a.button {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        padding: 0.65rem 1rem;
+        border-radius: 0.5rem;
+        font-size: 0.9rem;
+        font-weight: 600;
+        text-decoration: none;
+      }
+      a.primary {
+        background: #2563eb;
+        color: #fff;
+      }
+      a.secondary {
+        border: 1px solid #cbd5e1;
+        color: #334155;
+        background: #fff;
+      }
+      code {
+        font-size: 0.85em;
+        background: #f1f5f9;
+        padding: 0.1rem 0.35rem;
+        border-radius: 0.25rem;
+      }
+      .note {
+        margin-top: 1.25rem;
+        padding: 0.75rem 1rem;
+        border-radius: 0.5rem;
+        background: #eff6ff;
+        color: #1e40af;
+        font-size: 0.85rem;
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <h1>Passport Verify</h1>
+      <p>
+        이 저장소는 <strong>Next.js 서버 앱</strong>입니다. GitHub Pages는
+        <code>README.md</code>만 정적으로 보여 줄 수 있어 실제 앱이 실행되지
+        않습니다.
+      </p>
+      <p>웹에서 실행하려면 Vercel(권장)에 배포하거나 로컬에서 개발 서버를
+        실행하세요.</p>
+      <div class="actions">
+        <a
+          class="button primary"
+          href="https://vercel.com/new/clone?repository-url=https%3A%2F%2Fgithub.com%2Fcreator1008%2Fpassport&amp;env=NEXT_PUBLIC_SUPABASE_URL,NEXT_PUBLIC_SUPABASE_ANON_KEY,SUPABASE_SERVICE_ROLE_KEY,OPENAI_API_KEY&amp;envDescription=Supabase%20%EB%B0%8F%20OpenAI%20%ED%82%A4&amp;project-name=passport-verify"
+          >Vercel로 배포</a
+        >
+        <a
+          class="button secondary"
+          href="https://github.com/creator1008/passport#시작하기"
+          >로컬 실행 방법</a
+        >
+      </div>
+      <div class="note">
+        Vercel 배포가 끝나면 GitHub 저장소 Settings → Pages에서 Pages를 끄거나,
+        이 파일 상단의 배포 URL을 설정해 <code>github.io</code>에서 앱으로
+        리다이렉트할 수 있습니다.
+      </div>
+    </main>
+    <script>
+      // 배포 후 예: const PRODUCTION_URL = "https://passport-verify.vercel.app";
+      const PRODUCTION_URL = "";
+      if (PRODUCTION_URL) {
+        const meta = document.getElementById("prod-redirect");
+        meta.setAttribute("content", "0;url=" + PRODUCTION_URL);
+        window.location.replace(PRODUCTION_URL);
+      }
+    </script>
+  </body>
+</html>

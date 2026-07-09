@@ -106,8 +106,24 @@ export async function DELETE(_request: Request, context: RouteContext) {
     return NextResponse.json({ error: fetchError.message }, { status: 500 });
   }
 
+  const { data: careerRecords, error: careerFetchError } = await supabase
+    .from("career_certificate_records")
+    .select("storage_path")
+    .eq("applicant_id", id);
+
+  if (careerFetchError) {
+    return NextResponse.json({ error: careerFetchError.message }, { status: 500 });
+  }
+
   if (records?.length) {
     await Promise.all(records.map((r) => deletePassportImage(r.storage_path)));
+  }
+
+  if (careerRecords?.length) {
+    const { deleteCareerCertificateImage } = await import("@/lib/storage");
+    await Promise.all(
+      careerRecords.map((r) => deleteCareerCertificateImage(r.storage_path)),
+    );
   }
 
   const { error } = await supabase.from("applicants").delete().eq("id", id);

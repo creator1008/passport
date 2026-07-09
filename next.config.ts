@@ -1,7 +1,13 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  serverExternalPackages: ["sharp", "tesseract.js", "@techstark/opencv-js"],
+  serverExternalPackages: [
+    "sharp",
+    "tesseract.js",
+    "@techstark/opencv-js",
+    "pdf-parse",
+    "pdfjs-dist",
+  ],
   images: {
     remotePatterns: [
       {
